@@ -107,7 +107,27 @@ namespace Calculator {
                     continue;
                 }
 
-                if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
+                if (charCode === 40) { // Opening parenthesis, closing parenthesis
+                    let parenthesis = "";
+
+                    while (this.hasNext()) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode: number = nextChar.charCodeAt(0);
+
+                        if (nextCharCode !== 41) {
+                            this.consumeNext();
+
+                            parenthesis += nextChar;
+                        } else {
+                            this.consumeNext();
+
+                            break;
+                        }
+                    }
+
+                    let childParser: Parser = new Parser(parenthesis); // Recursive parsing
+                    tree.children.push(childParser.parse());
+                } else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
                     let num = char;
                     let isFloat = false;
 
@@ -272,10 +292,10 @@ namespace Calculator {
 
         public calculate(): void {
             try {
-                let parser = new Parser(this.inputElement.value);
+                let parser: Parser = new Parser(this.inputElement.value);
 
                 let tree: Elements.ParsedTree = parser.parse();
-                let solver = new Solver(tree);
+                let solver: Solver = new Solver(tree);
 
                 let result: number = solver.solve();
 
