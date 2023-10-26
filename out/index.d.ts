@@ -59,7 +59,6 @@ declare namespace Calculator {
         protected tree: Elements.ParsedTree;
         constructor(tree: Elements.ParsedTree);
         solve(): number;
-        evaluate(element: Elements.ParsedTree): number;
     }
     class Instance {
         protected rootElement: HTMLDivElement;
