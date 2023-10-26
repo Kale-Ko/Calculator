@@ -165,7 +165,6 @@ var Calculator;
                     throw new Error("Invalid/unknown character");
                 }
             }
-            console.log(JSON.stringify(tree.children, null, 2));
             return tree;
         }
         hasNext() {
@@ -191,45 +190,49 @@ var Calculator;
             this.tree = tree;
         }
         solve() {
-            return this.evaluate(this.tree);
-        }
-        evaluate(element) {
+            for (let pointer = 0; pointer < this.tree.children.length; pointer++) {
+                if (this.tree.children[pointer] instanceof Elements.ParsedTree) {
+                    let childTree = this.tree.children[pointer];
+                    let solver = new Solver(childTree);
+                    this.tree.children[pointer] = new Elements.ParsedFloat("", solver.solve());
+                }
+            }
             for (let operations of Solver.ORDER_OF_OPERATIONS_CORRECT) {
-                for (let pointer = 0; pointer < element.children.length; pointer++) {
-                    if (element.children[pointer] instanceof Elements.ParsedOperation) {
-                        let n1 = element.children[pointer - 1];
-                        let n2 = element.children[pointer + 1];
-                        let operation = element.children[pointer];
+                for (let pointer = 0; pointer < this.tree.children.length; pointer++) {
+                    if (this.tree.children[pointer] instanceof Elements.ParsedOperation) {
+                        let n1 = this.tree.children[pointer - 1];
+                        let n2 = this.tree.children[pointer + 1];
+                        let operation = this.tree.children[pointer];
                         if (n1 instanceof Elements.ParsedNumber && n2 instanceof Elements.ParsedNumber) {
                             if (operations.includes(operation.constructor.name)) {
                                 if (operation instanceof Elements.ParsedPlus) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number + n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number + n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else if (operation instanceof Elements.ParsedMinus) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number - n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number - n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else if (operation instanceof Elements.ParsedTimes) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number * n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number * n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else if (operation instanceof Elements.ParsedDivide) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number / n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number / n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else if (operation instanceof Elements.ParsedExponent) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number ** n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number ** n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else if (operation instanceof Elements.ParsedModulo) {
-                                    element.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number % n2.number);
-                                    element.children.splice(pointer, 2);
+                                    this.tree.children[pointer - 1] = new Elements.ParsedFloat(n1.raw + " " + operation.raw + " " + n2.raw, n1.number % n2.number);
+                                    this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
                                 else {
@@ -243,12 +246,11 @@ var Calculator;
                     }
                 }
             }
-            console.log(JSON.stringify(element.children, null, 2));
-            if (element.children.length !== 1) {
+            if (this.tree.children.length !== 1) {
                 throw new Error("Syntax error (Missing equation)");
             }
-            if (element.children[0] instanceof Elements.ParsedNumber) {
-                return element.children[0].number;
+            if (this.tree.children[0] instanceof Elements.ParsedNumber) {
+                return this.tree.children[0].number;
             }
             else {
                 throw new Error("Syntax error (Missing numbers)");
