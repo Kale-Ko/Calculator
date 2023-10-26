@@ -102,16 +102,23 @@ var Calculator;
                 }
                 if (charCode === 40) { // Opening parenthesis, closing parenthesis
                     let parenthesis = "";
+                    let childParenthesisCount = 0;
                     while (this.hasNext()) {
                         let nextChar = this.peekNext();
                         let nextCharCode = nextChar.charCodeAt(0);
                         if (nextCharCode !== 41) {
                             this.consumeNext();
                             parenthesis += nextChar;
+                            if (nextCharCode === 40) {
+                                childParenthesisCount++;
+                            }
                         }
                         else {
+                            childParenthesisCount--;
                             this.consumeNext();
-                            break;
+                            if (childParenthesisCount < 0) {
+                                break;
+                            }
                         }
                     }
                     let childParser = new Parser(parenthesis); // Recursive parsing
@@ -194,7 +201,7 @@ var Calculator;
                 if (this.tree.children[pointer] instanceof Elements.ParsedTree) {
                     let childTree = this.tree.children[pointer];
                     let solver = new Solver(childTree);
-                    this.tree.children[pointer] = new Elements.ParsedFloat("", solver.solve());
+                    this.tree.children[pointer] = new Elements.ParsedFloat("()", solver.solve());
                 }
             }
             for (let operations of Solver.ORDER_OF_OPERATIONS_CORRECT) {

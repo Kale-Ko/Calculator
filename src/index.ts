@@ -108,7 +108,8 @@ namespace Calculator {
                 }
 
                 if (charCode === 40) { // Opening parenthesis, closing parenthesis
-                    let parenthesis = "";
+                    let parenthesis: string = "";
+                    let childParenthesisCount: number = 0;
 
                     while (this.hasNext()) {
                         let nextChar = this.peekNext();
@@ -118,18 +119,24 @@ namespace Calculator {
                             this.consumeNext();
 
                             parenthesis += nextChar;
+                            if (nextCharCode === 40) {
+                                childParenthesisCount++;
+                            }
                         } else {
+                            childParenthesisCount--;
                             this.consumeNext();
 
-                            break;
+                            if (childParenthesisCount < 0) {
+                                break;
+                            }
                         }
                     }
 
                     let childParser: Parser = new Parser(parenthesis); // Recursive parsing
                     tree.children.push(childParser.parse());
                 } else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
-                    let num = char;
-                    let isFloat = false;
+                    let num: string = char;
+                    let isFloat: boolean = false;
 
                     while (this.hasNext()) {
                         let nextChar = this.peekNext();
@@ -208,7 +215,7 @@ namespace Calculator {
                     let childTree = this.tree.children[pointer] as Elements.ParsedTree;
 
                     let solver: Solver = new Solver(childTree);
-                    this.tree.children[pointer] = new Elements.ParsedFloat("", solver.solve());
+                    this.tree.children[pointer] = new Elements.ParsedFloat("()", solver.solve());
                 }
             }
 
