@@ -100,7 +100,24 @@ var Calculator;
                 if (charCode <= 32) { // Invisible character / space / newline
                     continue;
                 }
-                if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
+                if (charCode === 40) { // Opening parenthesis, closing parenthesis
+                    let parenthesis = "";
+                    while (this.hasNext()) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode = nextChar.charCodeAt(0);
+                        if (nextCharCode !== 41) {
+                            this.consumeNext();
+                            parenthesis += nextChar;
+                        }
+                        else {
+                            this.consumeNext();
+                            break;
+                        }
+                    }
+                    let childParser = new Parser(parenthesis); // Recursive parsing
+                    tree.children.push(childParser.parse());
+                }
+                else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
                     let num = char;
                     let isFloat = false;
                     while (this.hasNext()) {
