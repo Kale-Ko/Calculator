@@ -128,6 +128,8 @@ namespace Calculator {
 
                             if (childParenthesisCount < 0) {
                                 break;
+                            } else {
+                                parenthesis += nextChar; // For sub-parenthesis
                             }
                         }
                     }
