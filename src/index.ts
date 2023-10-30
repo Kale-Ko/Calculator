@@ -79,10 +79,20 @@ namespace Calculator {
         export class ParsedTree extends ParsedElement {
             public children: ParsedElement[];
 
-            public constructor() {
+            public constructor(children: ParsedElement[]) {
                 super();
 
-                this.children = [];
+                this.children = children;
+            }
+        }
+
+        export class ParsedFunction extends ParsedTree {
+            public name: string;
+
+            public constructor(name: string, children: ParsedElement[]) {
+                super(children);
+
+                this.name = name;
             }
         }
     }
@@ -97,7 +107,7 @@ namespace Calculator {
         }
 
         public parse(): Elements.ParsedTree {
-            let tree: Elements.ParsedTree = new Elements.ParsedTree();
+            let tree: Elements.ParsedTree = new Elements.ParsedTree([]);
 
             while (this.hasNext()) {
                 let char: string = this.readNext();
@@ -209,8 +219,78 @@ namespace Calculator {
     }
 
     export class Solver {
-        protected static ORDER_OF_OPERATIONS_CORRECT: string[][] = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
-        protected static ORDER_OF_OPERATIONS_SIMPLE: string[][] = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+        protected static ORDER_OF_OPERATIONS_CORRECT: string[][] = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
+        protected static ORDER_OF_OPERATIONS_SIMPLE: string[][] = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+
+        protected static FUNCTIONS: any = {
+            "abs": Solver.wrapMethod(Math.abs, 1), // absolute value
+            "sign": Solver.wrapMethod(Math.sign, 1), // sign (1, -1)
+
+            "max": Solver.wrapMethod(Math.max, "any"), // largest number
+            "min": Solver.wrapMethod(Math.min, "any"), // smallest number
+            "clamp": Solver.wrapMethod((x: number, min: number, max: number): number => {
+                return Math.max(Math.min(x, max), min);
+            }, 3), // clamp to range
+            "floor": Solver.wrapMethod(Math.floor, 1), // round down
+            "ceil": Solver.wrapMethod(Math.ceil, 1), // round up
+            "round": Solver.wrapMethod(Math.round, 1), // round
+
+            "pow": Solver.wrapMethod(Math.pow, 2), // x^y
+            "exp": Solver.wrapMethod(Math.exp, 1), // e^x
+            "expm1": Solver.wrapMethod(Math.exp, 1), // (e^x)-1,
+
+            "sqrt": Solver.wrapMethod(Math.sqrt, 1), // square root
+            "cbrt": Solver.wrapMethod(Math.cbrt, 1), // cube root
+
+            "sin": Solver.wrapMethod(Math.sin, 1), // sine
+            "sinh": Solver.wrapMethod(Math.sinh, 1), // hyperbolic sine
+            "asin": Solver.wrapMethod(Math.asin, 1), // inverse sine
+            "asinh": Solver.wrapMethod(Math.asinh, 1), // inverse hyperbolic sine
+
+            "cos": Solver.wrapMethod(Math.cos, 1), // cosine
+            "cosh": Solver.wrapMethod(Math.cosh, 1), // hyperbolic cosine
+            "acos": Solver.wrapMethod(Math.acos, 1), // inverse cosine
+            "acosh": Solver.wrapMethod(Math.acosh, 1), // inverse hyperbolic cosine
+
+            "tan": Solver.wrapMethod(Math.tan, 1), // tangent
+            "tanh": Solver.wrapMethod(Math.tanh, 1), // hyperbolic tangent
+            "atan": Solver.wrapMethod(Math.floor, 1), // inverse tangent
+            "atan2": Solver.wrapMethod(Math.floor, 1), // angle between 0,0 and x,y
+            "atanh": Solver.wrapMethod(Math.floor, 1), // inverse hyperbolic tangent
+
+            "log": Solver.wrapMethod(Math.log, 1), // natural logarithm
+            "log2": Solver.wrapMethod(Math.log2, 1), // base 2 logarithm
+            "log10": Solver.wrapMethod(Math.log10, 1), // base 10 logarithm
+            "log1p": Solver.wrapMethod(Math.log1p, 1), // log(1+x)
+
+            "random": Solver.wrapMethods(Math.random, (x: number): number => {
+                return Math.random() * x;
+            }, 0, 1), // random
+
+            "hypot": Solver.wrapMethod(Math.hypot, "any") // square root of the sum of squares of arguments
+        };
+
+        protected static wrapMethod(method: Function, argC: number | "any"): Function {
+            return (...args: any) => {
+                if (arguments.length == argC || argC == "any") {
+                    method(args);
+                } else {
+                    throw new Error("Incorrect number of args");
+                }
+            }
+        }
+
+        protected static wrapMethods(method1: Function, method2: Function, arg1C: number, arg2C: number | "any"): Function {
+            return (...args: any) => {
+                if (arguments.length == arg1C) {
+                    method1(args);
+                } else if (arguments.length == arg2C || arg2C == "any") {
+                    method2(args);
+                } else {
+                    throw new Error("Incorrect number of args");
+                }
+            }
+        }
 
         protected tree: Elements.ParsedTree;
 
@@ -266,6 +346,32 @@ namespace Calculator {
                                     this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
+                            }
+                        } else {
+                            throw new Error("Syntax error (Operator must be passed two numbers)");
+                        }
+                    } else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
+                        let n1 = this.tree.children[pointer - 1];
+                        let n2 = this.tree.children[pointer + 1];
+                        let operation = this.tree.children[pointer] as Elements.ParsedFunction;
+
+                        if (n1 instanceof Elements.ParsedNumber && n2 instanceof Elements.ParsedNumber) {
+                            if (operations.includes(operation.constructor.name)) {
+                                let method = Solver.FUNCTIONS[operation.name];
+                                if (method === undefined) {
+                                    throw new Error("Unknown function '" + operation.name + "'");
+                                }
+
+                                let args = [];
+                                for (let child of operation.children) {
+                                    if (child instanceof Elements.ParsedNumber) {
+                                        args.push(child.number);
+                                    }
+                                }
+
+                                this.tree.children[pointer - 1] = method(args);
+                                this.tree.children.splice(pointer, 2);
+                                pointer--;
                             }
                         } else {
                             throw new Error("Syntax error (Operator must be passed two numbers)");

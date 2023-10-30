@@ -40,7 +40,11 @@ declare namespace Calculator {
         }
         class ParsedTree extends ParsedElement {
             children: ParsedElement[];
-            constructor();
+            constructor(children: ParsedElement[]);
+        }
+        class ParsedFunction extends ParsedTree {
+            name: string;
+            constructor(name: string, children: ParsedElement[]);
         }
     }
     export class Parser {
@@ -56,6 +60,9 @@ declare namespace Calculator {
     export class Solver {
         protected static ORDER_OF_OPERATIONS_CORRECT: string[][];
         protected static ORDER_OF_OPERATIONS_SIMPLE: string[][];
+        protected static FUNCTIONS: any;
+        protected static wrapMethod(method: Function, argC: number | "any"): Function;
+        protected static wrapMethods(method1: Function, method2: Function, arg1C: number, arg2C: number | "any"): Function;
         protected tree: Elements.ParsedTree;
         constructor(tree: Elements.ParsedTree);
         solve(): number;
