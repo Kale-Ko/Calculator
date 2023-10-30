@@ -306,9 +306,9 @@ var Calculator;
             "hypot": Solver.wrapMethod(Math.hypot, "any") // square root of the sum of squares of arguments
         };
         static wrapMethod(method, argC) {
-            return (...args) => {
-                if (arguments.length == argC || argC == "any") {
-                    method(args);
+            return (args) => {
+                if (args.length == argC || argC == "any") {
+                    return method(...args);
                 }
                 else {
                     throw new Error("Incorrect number of args");
@@ -316,12 +316,12 @@ var Calculator;
             };
         }
         static wrapMethods(method1, method2, arg1C, arg2C) {
-            return (...args) => {
-                if (arguments.length == arg1C) {
-                    method1(args);
+            return (args) => {
+                if (args.length == arg1C) {
+                    return method1(...args);
                 }
-                else if (arguments.length == arg2C || arg2C == "any") {
-                    method2(args);
+                else if (args.length == arg2C || arg2C == "any") {
+                    return method2(...args);
                 }
                 else {
                     throw new Error("Incorrect number of args");
@@ -351,7 +351,13 @@ var Calculator;
                             childTree.args[pointer] = new Elements.ParsedFloat("()", solver.solve());
                         }
                     }
-                    console.log(childTree);
+                    let method = Solver.FUNCTIONS[childTree.name];
+                    let args = [];
+                    for (let arg of childTree.args) {
+                        args.push(arg.number);
+                    }
+                    let result = method(args);
+                    this.tree.children[pointer] = new Elements.ParsedFloat("()", result);
                 }
             }
             for (let operations of (Settings.orderOfOperationsMode === "simple" ? Solver.ORDER_OF_OPERATIONS_SIMPLE : Solver.ORDER_OF_OPERATIONS_CORRECT)) { // Parse equations
