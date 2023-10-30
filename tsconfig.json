@@ -1,18 +1,39 @@
 {
-    "compilerOptions": {
-        "target": "esnext",
-        "module": "esnext",
-        "lib": [
-            "dom",
-            "esnext"
-        ],
-        "outDir": "out/",
-        "strict": true,
-        "sourceMap": true,
-        "declaration": true,
-        "declarationMap": true
-    },
-    "include": [
-        "src/**/*"
-    ]
+  "compilerOptions": {
+    "rootDir": "src/",
+    "outDir": "out/",
+    "target": "esnext",
+    "lib": [
+      "dom",
+      "esnext"
+    ],
+    "module": "esnext",
+    "baseUrl": "src/",
+    "paths": {},
+    "strict": true,
+    "alwaysStrict": true,
+    "strictBindCallApply": true,
+    "allowJs": true,
+    "checkJs": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules/**/*"
+  ]
 }

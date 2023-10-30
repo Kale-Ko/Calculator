@@ -1,4 +1,7 @@
-"use strict";
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+var __webpack_exports__ = {};
+
 var Calculator;
 (function (Calculator) {
     let Elements;
@@ -352,6 +355,9 @@ var Calculator;
                         }
                     }
                     let method = Solver.FUNCTIONS[childTree.name];
+                    if (method === undefined) {
+                        throw new Error("Unknown function '" + childTree.name + "'");
+                    }
                     let args = [];
                     for (let arg of childTree.args) {
                         args.push(arg.number);
@@ -464,4 +470,7 @@ var Calculator;
 window.Calculator = Calculator;
 let instance = new Calculator.Instance();
 instance.init();
+
+/******/ })()
+;
 //# sourceMappingURL=index.js.map
