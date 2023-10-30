@@ -2,8 +2,6 @@
 /******/ 	"use strict";
 var __webpack_exports__ = {};
 
-// UNUSED EXPORTS: Elements, Instance, Parser, Solver
-
 ;// CONCATENATED MODULE: ./src/elements.ts
 class ParsedElement {
     constructor() { }
@@ -21,7 +19,7 @@ class ParsedNumber extends ParsedToken {
         this.number = number;
     }
 }
-class ParsedInteger extends (/* unused pure expression or super */ null && (ParsedNumber)) {
+class ParsedInteger extends ParsedNumber {
     constructor(raw, number) {
         super(raw, number);
     }
@@ -83,47 +81,218 @@ class ParsedFunction extends ParsedElement {
     }
 }
 
+;// CONCATENATED MODULE: ./src/parser.ts
+
+class Parser {
+    string;
+    pointer;
+    constructor(string) {
+        this.string = string;
+        this.pointer = 0;
+    }
+    parse() {
+        let tree = new ParsedTree([]);
+        while (this.hasNext()) {
+            let char = this.readNext();
+            let charCode = char.charCodeAt(0);
+            if (charCode <= 32) { // Invisible character / space / newline
+                continue;
+            }
+            if (charCode === 40) { // Opening parenthesis
+                let parenthesis = "";
+                let hasClosing = false;
+                let childParenthesisCount = 0;
+                while (this.hasNext()) {
+                    let nextChar = this.peekNext();
+                    let nextCharCode = nextChar.charCodeAt(0);
+                    if (nextCharCode !== 41) { // Not closing parenthesis
+                        this.consumeNext();
+                        parenthesis += nextChar;
+                        if (nextCharCode === 40) {
+                            childParenthesisCount++;
+                        }
+                    }
+                    else {
+                        childParenthesisCount--;
+                        this.consumeNext();
+                        if (childParenthesisCount < 0) {
+                            hasClosing = true;
+                            break;
+                        }
+                        else {
+                            parenthesis += nextChar; // For sub-parenthesis
+                        }
+                    }
+                }
+                if (!hasClosing) {
+                    throw new Error("Syntax error (Missing closing parenthesis)");
+                }
+                let childParser = new Parser(parenthesis); // Recursive parsing
+                tree.children.push(new ParsedTree(childParser.parse().children));
+            }
+            else if ((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) { // A-Z a-z
+                let name = char;
+                let doneName = false;
+                let argC = 1;
+                let args = [""];
+                let hasClosing = false;
+                let childParenthesisCount = 0;
+                while (this.hasNext() && !doneName) {
+                    let nextChar = this.peekNext();
+                    let nextCharCode = nextChar.charCodeAt(0);
+                    if ((nextCharCode >= 65 && nextCharCode <= 90) || (nextCharCode >= 97 && nextCharCode <= 122) || (nextCharCode >= 48 && nextCharCode <= 57) || nextCharCode === 46) { // Not closing parenthesis
+                        this.consumeNext();
+                        name += nextChar;
+                    }
+                    else {
+                        this.consumeNext();
+                        doneName = true;
+                        break;
+                    }
+                }
+                while (this.hasNext()) {
+                    let nextChar = this.peekNext();
+                    let nextCharCode = nextChar.charCodeAt(0);
+                    if (nextCharCode === 44) { // Comma
+                        this.consumeNext();
+                        argC++;
+                        args[argC - 1] = "";
+                    }
+                    else if (nextCharCode !== 41) { // Not closing parenthesis
+                        this.consumeNext();
+                        args[argC - 1] += nextChar;
+                        if (nextCharCode === 40) {
+                            childParenthesisCount++;
+                        }
+                    }
+                    else {
+                        childParenthesisCount--;
+                        this.consumeNext();
+                        if (childParenthesisCount < 0) {
+                            hasClosing = true;
+                            break;
+                        }
+                        else {
+                            args[argC - 1] += nextChar; // For sub-parenthesis
+                        }
+                    }
+                }
+                if (!hasClosing) {
+                    throw new Error("Syntax error (Missing closing parenthesis)");
+                }
+                let parsedArgs = [];
+                for (let child of args) {
+                    let childParser = new Parser(child); // Recursive parsing
+                    parsedArgs.push(childParser.parse());
+                }
+                tree.children.push(new ParsedFunction(name, parsedArgs));
+            }
+            else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
+                let num = char;
+                let isFloat = false;
+                while (this.hasNext()) {
+                    let nextChar = this.peekNext();
+                    let nextCharCode = nextChar.charCodeAt(0);
+                    if ((nextCharCode >= 48 && nextCharCode <= 57) || nextCharCode === 46) { // Number, decimal point
+                        this.consumeNext();
+                        num += nextChar;
+                        if (nextCharCode === 46) {
+                            isFloat = true;
+                        }
+                    }
+                    else {
+                        break;
+                    }
+                }
+                if (!isFloat) {
+                    let parsedNum = parseInt(num);
+                    tree.children.push(new ParsedInteger(num, parsedNum));
+                }
+                else {
+                    let parsedNum = parseFloat(num);
+                    tree.children.push(new ParsedFloat(num, parsedNum));
+                }
+            }
+            else if (charCode === 43) { // Plus
+                tree.children.push(new ParsedPlus(char));
+            }
+            else if (charCode === 45) { // Minus
+                tree.children.push(new ParsedMinus(char));
+            }
+            else if (charCode === 42) { // Times
+                tree.children.push(new ParsedTimes(char));
+            }
+            else if (charCode === 47) { // Divide
+                tree.children.push(new ParsedDivide(char));
+            }
+            else if (charCode === 94) { // Exponent
+                tree.children.push(new ParsedExponent(char));
+            }
+            else if (charCode === 37) { // Modulo
+                tree.children.push(new ParsedModulo(char));
+            }
+            else {
+                throw new Error("Invalid/unknown character '" + char + "'" + (charCode === 41 ? " (Mismatched parenthesis)" : ""));
+            }
+        }
+        return tree;
+    }
+    hasNext() {
+        return this.pointer < this.string.length;
+    }
+    readNext() {
+        this.pointer++;
+        return this.string[this.pointer - 1];
+    }
+    peekNext() {
+        return this.string[this.pointer];
+    }
+    consumeNext() {
+        this.pointer++;
+    }
+}
+
 ;// CONCATENATED MODULE: ./src/solver.ts
 
-class solver_Solver {
+class Solver {
     static ORDER_OF_OPERATIONS = [[ParsedExponent.name], [ParsedTimes.name, ParsedDivide.name, ParsedModulo.name], [ParsedPlus.name, ParsedMinus.name]];
     static FUNCTIONS = {
-        "abs": solver_Solver.wrapMethod(Math.abs, 1),
-        "sign": solver_Solver.wrapMethod(Math.sign, 1),
-        "max": solver_Solver.wrapMethod(Math.max, "any"),
-        "min": solver_Solver.wrapMethod(Math.min, "any"),
-        "clamp": solver_Solver.wrapMethod((x, min, max) => {
+        "abs": Solver.wrapMethod(Math.abs, 1),
+        "sign": Solver.wrapMethod(Math.sign, 1),
+        "max": Solver.wrapMethod(Math.max, "any"),
+        "min": Solver.wrapMethod(Math.min, "any"),
+        "clamp": Solver.wrapMethod((x, min, max) => {
             return Math.max(Math.min(x, max), min);
         }, 3),
-        "floor": solver_Solver.wrapMethod(Math.floor, 1),
-        "ceil": solver_Solver.wrapMethod(Math.ceil, 1),
-        "round": solver_Solver.wrapMethod(Math.round, 1),
-        "pow": solver_Solver.wrapMethod(Math.pow, 2),
-        "exp": solver_Solver.wrapMethod(Math.exp, 1),
-        "expm1": solver_Solver.wrapMethod(Math.exp, 1),
-        "sqrt": solver_Solver.wrapMethod(Math.sqrt, 1),
-        "cbrt": solver_Solver.wrapMethod(Math.cbrt, 1),
-        "sin": solver_Solver.wrapMethod(Math.sin, 1),
-        "sinh": solver_Solver.wrapMethod(Math.sinh, 1),
-        "asin": solver_Solver.wrapMethod(Math.asin, 1),
-        "asinh": solver_Solver.wrapMethod(Math.asinh, 1),
-        "cos": solver_Solver.wrapMethod(Math.cos, 1),
-        "cosh": solver_Solver.wrapMethod(Math.cosh, 1),
-        "acos": solver_Solver.wrapMethod(Math.acos, 1),
-        "acosh": solver_Solver.wrapMethod(Math.acosh, 1),
-        "tan": solver_Solver.wrapMethod(Math.tan, 1),
-        "tanh": solver_Solver.wrapMethod(Math.tanh, 1),
-        "atan": solver_Solver.wrapMethod(Math.floor, 1),
-        "atan2": solver_Solver.wrapMethod(Math.floor, 1),
-        "atanh": solver_Solver.wrapMethod(Math.floor, 1),
-        "log": solver_Solver.wrapMethod(Math.log, 1),
-        "log2": solver_Solver.wrapMethod(Math.log2, 1),
-        "log10": solver_Solver.wrapMethod(Math.log10, 1),
-        "log1p": solver_Solver.wrapMethod(Math.log1p, 1),
-        "random": solver_Solver.wrapMethods(Math.random, (x) => {
+        "floor": Solver.wrapMethod(Math.floor, 1),
+        "ceil": Solver.wrapMethod(Math.ceil, 1),
+        "round": Solver.wrapMethod(Math.round, 1),
+        "pow": Solver.wrapMethod(Math.pow, 2),
+        "exp": Solver.wrapMethod(Math.exp, 1),
+        "expm1": Solver.wrapMethod(Math.exp, 1),
+        "sqrt": Solver.wrapMethod(Math.sqrt, 1),
+        "cbrt": Solver.wrapMethod(Math.cbrt, 1),
+        "sin": Solver.wrapMethod(Math.sin, 1),
+        "sinh": Solver.wrapMethod(Math.sinh, 1),
+        "asin": Solver.wrapMethod(Math.asin, 1),
+        "asinh": Solver.wrapMethod(Math.asinh, 1),
+        "cos": Solver.wrapMethod(Math.cos, 1),
+        "cosh": Solver.wrapMethod(Math.cosh, 1),
+        "acos": Solver.wrapMethod(Math.acos, 1),
+        "acosh": Solver.wrapMethod(Math.acosh, 1),
+        "tan": Solver.wrapMethod(Math.tan, 1),
+        "tanh": Solver.wrapMethod(Math.tanh, 1),
+        "atan": Solver.wrapMethod(Math.floor, 1),
+        "atan2": Solver.wrapMethod(Math.floor, 1),
+        "atanh": Solver.wrapMethod(Math.floor, 1),
+        "log": Solver.wrapMethod(Math.log, 1),
+        "log2": Solver.wrapMethod(Math.log2, 1),
+        "log10": Solver.wrapMethod(Math.log10, 1),
+        "log1p": Solver.wrapMethod(Math.log1p, 1),
+        "random": Solver.wrapMethods(Math.random, (x) => {
             return Math.random() * x;
         }, 0, 1),
-        "hypot": solver_Solver.wrapMethod(Math.hypot, "any") // square root of the sum of squares of arguments
+        "hypot": Solver.wrapMethod(Math.hypot, "any") // square root of the sum of squares of arguments
     };
     static wrapMethod(method, argC) {
         return (args) => {
@@ -159,7 +328,7 @@ class solver_Solver {
         for (let pointer = 0; pointer < this.tree.children.length; pointer++) { // Parse parenthesis
             if (this.tree.children[pointer] instanceof ParsedTree) {
                 let childTree = this.tree.children[pointer];
-                let solver = new solver_Solver(childTree);
+                let solver = new Solver(childTree);
                 this.tree.children[pointer] = new ParsedFloat("()", solver.solve());
             }
             else if (this.tree.children[pointer] instanceof ParsedFunction) {
@@ -167,11 +336,11 @@ class solver_Solver {
                 for (let pointer = 0; pointer < childTree.args.length; pointer++) { // Parse parenthesis
                     if (childTree.args[pointer] instanceof ParsedTree) {
                         let subChildTree = childTree.args[pointer];
-                        let solver = new solver_Solver(subChildTree);
+                        let solver = new Solver(subChildTree);
                         childTree.args[pointer] = new ParsedFloat("()", solver.solve());
                     }
                 }
-                let method = solver_Solver.FUNCTIONS[childTree.name];
+                let method = Solver.FUNCTIONS[childTree.name];
                 if (method === undefined) {
                     throw new Error("Unknown function '" + childTree.name + "'");
                 }
@@ -183,7 +352,7 @@ class solver_Solver {
                 this.tree.children[pointer] = new ParsedFloat("()", result);
             }
         }
-        for (let operations of solver_Solver.ORDER_OF_OPERATIONS) { // Parse equations
+        for (let operations of Solver.ORDER_OF_OPERATIONS) { // Parse equations
             for (let pointer = 0; pointer < this.tree.children.length; pointer++) {
                 if (this.tree.children[pointer] instanceof ParsedOperation) {
                     let n1 = this.tree.children[pointer - 1];
@@ -244,7 +413,6 @@ class solver_Solver {
 ;// CONCATENATED MODULE: ./src/index.ts
 
 
-
 class Instance {
     rootElement;
     inputElement;
@@ -280,7 +448,8 @@ class Instance {
         }
     }
 }
-
+let instance = new Instance();
+instance.init();
 
 /******/ })()
 ;
