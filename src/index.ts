@@ -50,4 +50,5 @@ class Instance {
     }
 }
 
-export { Elements, Parser, Solver, Instance };
+let instance = new Instance();
+instance.init();  
