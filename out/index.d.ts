@@ -1,5 +1,5 @@
 declare namespace Calculator {
-    namespace Elements {
+    export namespace Elements {
         class ParsedElement {
             protected constructor();
         }
@@ -43,7 +43,7 @@ declare namespace Calculator {
             constructor();
         }
     }
-    class Parser {
+    export class Parser {
         protected string: string;
         protected pointer: number;
         constructor(string: string);
@@ -53,14 +53,14 @@ declare namespace Calculator {
         protected peekNext(): string;
         protected consumeNext(): void;
     }
-    class Solver {
-        protected static ORDER_OF_OPERATIONS: string[][];
+    export class Solver {
         protected static ORDER_OF_OPERATIONS_CORRECT: string[][];
+        protected static ORDER_OF_OPERATIONS_SIMPLE: string[][];
         protected tree: Elements.ParsedTree;
         constructor(tree: Elements.ParsedTree);
         solve(): number;
     }
-    class Instance {
+    export class Instance {
         protected rootElement: HTMLDivElement;
         protected inputElement: HTMLInputElement;
         protected outputElement: HTMLSpanElement;
@@ -68,6 +68,12 @@ declare namespace Calculator {
         init(): void;
         calculate(): void;
     }
+    type OrderOfOperationsMode = "correct" | "simple";
+    export class Settings {
+        static parenthesisEnabled: boolean;
+        static orderOfOperationsMode: OrderOfOperationsMode;
+    }
+    export {};
 }
 declare let instance: Calculator.Instance;
 //# sourceMappingURL=index.d.ts.map
