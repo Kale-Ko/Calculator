@@ -339,9 +339,9 @@ namespace Calculator {
         };
 
         protected static wrapMethod(method: Function, argC: number | "any"): Function {
-            return (...args: any) => {
-                if (arguments.length == argC || argC == "any") {
-                    method(args);
+            return (args: any[]) => {
+                if (args.length == argC || argC == "any") {
+                    return method(...args);
                 } else {
                     throw new Error("Incorrect number of args");
                 }
@@ -349,11 +349,11 @@ namespace Calculator {
         }
 
         protected static wrapMethods(method1: Function, method2: Function, arg1C: number, arg2C: number | "any"): Function {
-            return (...args: any) => {
-                if (arguments.length == arg1C) {
-                    method1(args);
-                } else if (arguments.length == arg2C || arg2C == "any") {
-                    method2(args);
+            return (args: any[]) => {
+                if (args.length == arg1C) {
+                    return method1(...args);
+                } else if (args.length == arg2C || arg2C == "any") {
+                    return method2(...args);
                 } else {
                     throw new Error("Incorrect number of args");
                 }
@@ -389,7 +389,14 @@ namespace Calculator {
                         }
                     }
 
-                    console.log(childTree);
+                    let method = Solver.FUNCTIONS[childTree.name];
+                    let args: number[] = [];
+                    for (let arg of childTree.args) {
+                        args.push((arg as Elements.ParsedNumber).number);
+                    }
+
+                    let result = method(args);
+                    this.tree.children[pointer] = new Elements.ParsedFloat("()", result);
                 }
             }
 
