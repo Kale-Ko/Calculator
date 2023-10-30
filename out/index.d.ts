@@ -42,9 +42,10 @@ declare namespace Calculator {
             children: ParsedElement[];
             constructor(children: ParsedElement[]);
         }
-        class ParsedFunction extends ParsedTree {
+        class ParsedFunction extends ParsedElement {
             name: string;
-            constructor(name: string, children: ParsedElement[]);
+            args: ParsedElement[];
+            constructor(name: string, args: ParsedElement[]);
         }
     }
     export class Parser {
@@ -78,6 +79,7 @@ declare namespace Calculator {
     type OrderOfOperationsMode = "correct" | "simple";
     export class Settings {
         static parenthesisEnabled: boolean;
+        static functionsEnabled: boolean;
         static orderOfOperationsMode: OrderOfOperationsMode;
     }
     export {};

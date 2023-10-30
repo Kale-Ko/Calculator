@@ -84,11 +84,13 @@ var Calculator;
             }
         }
         Elements.ParsedTree = ParsedTree;
-        class ParsedFunction extends ParsedTree {
+        class ParsedFunction extends ParsedElement {
             name;
-            constructor(name, children) {
-                super(children);
+            args;
+            constructor(name, args) {
+                super();
                 this.name = name;
+                this.args = args;
             }
         }
         Elements.ParsedFunction = ParsedFunction;
@@ -138,7 +140,64 @@ var Calculator;
                         throw new Error("Syntax error (Missing closing parenthesis)");
                     }
                     let childParser = new Parser(parenthesis); // Recursive parsing
-                    tree.children.push(childParser.parse());
+                    tree.children.push(new Elements.ParsedTree(childParser.parse().children));
+                }
+                else if (((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) && Settings.parenthesisEnabled && Settings.functionsEnabled) { // A-Z a-z
+                    let name = char;
+                    let doneName = false;
+                    let argC = 1;
+                    let args = [""];
+                    let hasClosing = false;
+                    let childParenthesisCount = 0;
+                    while (this.hasNext() && !doneName) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode = nextChar.charCodeAt(0);
+                        if ((nextCharCode >= 65 && nextCharCode <= 90) || (nextCharCode >= 97 && nextCharCode <= 122) || (nextCharCode >= 48 && nextCharCode <= 57) || nextCharCode === 46) { // Not closing parenthesis
+                            this.consumeNext();
+                            name += nextChar;
+                        }
+                        else {
+                            this.consumeNext();
+                            doneName = true;
+                            break;
+                        }
+                    }
+                    while (this.hasNext()) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode = nextChar.charCodeAt(0);
+                        if (nextCharCode === 44) { // Comma
+                            this.consumeNext();
+                            argC++;
+                            args[argC - 1] = "";
+                        }
+                        else if (nextCharCode !== 41) { // Not closing parenthesis
+                            this.consumeNext();
+                            args[argC - 1] += nextChar;
+                            if (nextCharCode === 40) {
+                                childParenthesisCount++;
+                            }
+                        }
+                        else {
+                            childParenthesisCount--;
+                            this.consumeNext();
+                            if (childParenthesisCount < 0) {
+                                hasClosing = true;
+                                break;
+                            }
+                            else {
+                                args[argC - 1] += nextChar; // For sub-parenthesis
+                            }
+                        }
+                    }
+                    if (!hasClosing) {
+                        throw new Error("Syntax error (Missing closing parenthesis)");
+                    }
+                    let parsedArgs = [];
+                    for (let child of args) {
+                        let childParser = new Parser(child); // Recursive parsing
+                        parsedArgs.push(childParser.parse());
+                    }
+                    tree.children.push(new Elements.ParsedFunction(name, parsedArgs));
                 }
                 else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
                     let num = char;
@@ -206,8 +265,8 @@ var Calculator;
     }
     Calculator.Parser = Parser;
     class Solver {
-        static ORDER_OF_OPERATIONS_CORRECT = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
-        static ORDER_OF_OPERATIONS_SIMPLE = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+        static ORDER_OF_OPERATIONS_CORRECT = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
+        static ORDER_OF_OPERATIONS_SIMPLE = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
         static FUNCTIONS = {
             "abs": Solver.wrapMethod(Math.abs, 1),
             "sign": Solver.wrapMethod(Math.sign, 1),
@@ -283,6 +342,17 @@ var Calculator;
                     let solver = new Solver(childTree);
                     this.tree.children[pointer] = new Elements.ParsedFloat("()", solver.solve());
                 }
+                else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
+                    let childTree = this.tree.children[pointer];
+                    for (let pointer = 0; pointer < childTree.args.length; pointer++) { // Parse parenthesis
+                        if (childTree.args[pointer] instanceof Elements.ParsedTree) {
+                            let subChildTree = childTree.args[pointer];
+                            let solver = new Solver(subChildTree);
+                            childTree.args[pointer] = new Elements.ParsedFloat("()", solver.solve());
+                        }
+                    }
+                    console.log(childTree);
+                }
             }
             for (let operations of (Settings.orderOfOperationsMode === "simple" ? Solver.ORDER_OF_OPERATIONS_SIMPLE : Solver.ORDER_OF_OPERATIONS_CORRECT)) { // Parse equations
                 for (let pointer = 0; pointer < this.tree.children.length; pointer++) {
@@ -322,31 +392,6 @@ var Calculator;
                                     this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
-                            }
-                        }
-                        else {
-                            throw new Error("Syntax error (Operator must be passed two numbers)");
-                        }
-                    }
-                    else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
-                        let n1 = this.tree.children[pointer - 1];
-                        let n2 = this.tree.children[pointer + 1];
-                        let operation = this.tree.children[pointer];
-                        if (n1 instanceof Elements.ParsedNumber && n2 instanceof Elements.ParsedNumber) {
-                            if (operations.includes(operation.constructor.name)) {
-                                let method = Solver.FUNCTIONS[operation.name];
-                                if (method === undefined) {
-                                    throw new Error("Unknown function '" + operation.name + "'");
-                                }
-                                let args = [];
-                                for (let child of operation.children) {
-                                    if (child instanceof Elements.ParsedNumber) {
-                                        args.push(child.number);
-                                    }
-                                }
-                                this.tree.children[pointer - 1] = method(args);
-                                this.tree.children.splice(pointer, 2);
-                                pointer--;
                             }
                         }
                         else {
@@ -405,6 +450,7 @@ var Calculator;
     Calculator.Instance = Instance;
     class Settings {
         static parenthesisEnabled = true;
+        static functionsEnabled = true;
         static orderOfOperationsMode = "correct";
     }
     Calculator.Settings = Settings;
