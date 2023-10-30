@@ -86,13 +86,15 @@ namespace Calculator {
             }
         }
 
-        export class ParsedFunction extends ParsedTree {
+        export class ParsedFunction extends ParsedElement {
             public name: string;
+            public args: ParsedElement[];
 
-            public constructor(name: string, children: ParsedElement[]) {
-                super(children);
+            public constructor(name: string, args: ParsedElement[]) {
+                super();
 
                 this.name = name;
+                this.args = args;
             }
         }
     }
@@ -152,7 +154,73 @@ namespace Calculator {
                     }
 
                     let childParser: Parser = new Parser(parenthesis); // Recursive parsing
-                    tree.children.push(childParser.parse());
+                    tree.children.push(new Elements.ParsedTree(childParser.parse().children));
+                } else if (((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) && Settings.parenthesisEnabled && Settings.functionsEnabled) { // A-Z a-z
+                    let name: string = char;
+                    let doneName = false;
+                    let argC = 1;
+                    let args: string[] = [""];
+                    let hasClosing = false;
+                    let childParenthesisCount: number = 0;
+
+                    while (this.hasNext() && !doneName) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode: number = nextChar.charCodeAt(0);
+
+                        if ((nextCharCode >= 65 && nextCharCode <= 90) || (nextCharCode >= 97 && nextCharCode <= 122) || (nextCharCode >= 48 && nextCharCode <= 57) || nextCharCode === 46) { // Not closing parenthesis
+                            this.consumeNext();
+
+                            name += nextChar;
+                        } else {
+                            this.consumeNext();
+
+                            doneName = true;
+                            break;
+                        }
+                    }
+
+                    while (this.hasNext()) {
+                        let nextChar = this.peekNext();
+                        let nextCharCode: number = nextChar.charCodeAt(0);
+
+                        if (nextCharCode === 44) { // Comma
+                            this.consumeNext();
+
+                            argC++;
+                            args[argC - 1] = "";
+                        } else if (nextCharCode !== 41) { // Not closing parenthesis
+                            this.consumeNext();
+
+                            args[argC - 1] += nextChar;
+                            if (nextCharCode === 40) {
+                                childParenthesisCount++;
+                            }
+                        } else {
+                            childParenthesisCount--;
+                            this.consumeNext();
+
+                            if (childParenthesisCount < 0) {
+                                hasClosing = true;
+
+                                break;
+                            } else {
+                                args[argC - 1] += nextChar; // For sub-parenthesis
+                            }
+                        }
+                    }
+
+                    if (!hasClosing) {
+                        throw new Error("Syntax error (Missing closing parenthesis)");
+                    }
+
+                    let parsedArgs: Elements.ParsedTree[] = [];
+
+                    for (let child of args) {
+                        let childParser: Parser = new Parser(child); // Recursive parsing
+                        parsedArgs.push(childParser.parse());
+                    }
+
+                    tree.children.push(new Elements.ParsedFunction(name, parsedArgs));
                 } else if ((charCode >= 48 && charCode <= 57) || charCode === 46) { // Number, decimal point
                     let num: string = char;
                     let isFloat: boolean = false;
@@ -219,8 +287,8 @@ namespace Calculator {
     }
 
     export class Solver {
-        protected static ORDER_OF_OPERATIONS_CORRECT: string[][] = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
-        protected static ORDER_OF_OPERATIONS_SIMPLE: string[][] = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+        protected static ORDER_OF_OPERATIONS_CORRECT: string[][] = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
+        protected static ORDER_OF_OPERATIONS_SIMPLE: string[][] = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
 
         protected static FUNCTIONS: any = {
             "abs": Solver.wrapMethod(Math.abs, 1), // absolute value
@@ -309,6 +377,19 @@ namespace Calculator {
 
                     let solver: Solver = new Solver(childTree);
                     this.tree.children[pointer] = new Elements.ParsedFloat("()", solver.solve());
+                } else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
+                    let childTree = this.tree.children[pointer] as Elements.ParsedFunction;
+
+                    for (let pointer = 0; pointer < childTree.args.length; pointer++) { // Parse parenthesis
+                        if (childTree.args[pointer] instanceof Elements.ParsedTree) {
+                            let subChildTree = childTree.args[pointer] as Elements.ParsedTree;
+
+                            let solver: Solver = new Solver(subChildTree);
+                            childTree.args[pointer] = new Elements.ParsedFloat("()", solver.solve());
+                        }
+                    }
+
+                    console.log(childTree);
                 }
             }
 
@@ -346,32 +427,6 @@ namespace Calculator {
                                     this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
-                            }
-                        } else {
-                            throw new Error("Syntax error (Operator must be passed two numbers)");
-                        }
-                    } else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
-                        let n1 = this.tree.children[pointer - 1];
-                        let n2 = this.tree.children[pointer + 1];
-                        let operation = this.tree.children[pointer] as Elements.ParsedFunction;
-
-                        if (n1 instanceof Elements.ParsedNumber && n2 instanceof Elements.ParsedNumber) {
-                            if (operations.includes(operation.constructor.name)) {
-                                let method = Solver.FUNCTIONS[operation.name];
-                                if (method === undefined) {
-                                    throw new Error("Unknown function '" + operation.name + "'");
-                                }
-
-                                let args = [];
-                                for (let child of operation.children) {
-                                    if (child instanceof Elements.ParsedNumber) {
-                                        args.push(child.number);
-                                    }
-                                }
-
-                                this.tree.children[pointer - 1] = method(args);
-                                this.tree.children.splice(pointer, 2);
-                                pointer--;
                             }
                         } else {
                             throw new Error("Syntax error (Operator must be passed two numbers)");
@@ -443,6 +498,7 @@ namespace Calculator {
     type OrderOfOperationsMode = "correct" | "simple";
     export class Settings {
         static parenthesisEnabled: boolean = true;
+        static functionsEnabled: boolean = true;
         static orderOfOperationsMode: OrderOfOperationsMode = "correct";
     }
 }
