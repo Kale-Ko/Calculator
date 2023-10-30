@@ -78,12 +78,20 @@ var Calculator;
         Elements.ParsedModulo = ParsedModulo;
         class ParsedTree extends ParsedElement {
             children;
-            constructor() {
+            constructor(children) {
                 super();
-                this.children = [];
+                this.children = children;
             }
         }
         Elements.ParsedTree = ParsedTree;
+        class ParsedFunction extends ParsedTree {
+            name;
+            constructor(name, children) {
+                super(children);
+                this.name = name;
+            }
+        }
+        Elements.ParsedFunction = ParsedFunction;
     })(Elements = Calculator.Elements || (Calculator.Elements = {}));
     class Parser {
         string;
@@ -93,7 +101,7 @@ var Calculator;
             this.pointer = 0;
         }
         parse() {
-            let tree = new Elements.ParsedTree();
+            let tree = new Elements.ParsedTree([]);
             while (this.hasNext()) {
                 let char = this.readNext();
                 let charCode = char.charCodeAt(0);
@@ -198,8 +206,69 @@ var Calculator;
     }
     Calculator.Parser = Parser;
     class Solver {
-        static ORDER_OF_OPERATIONS_CORRECT = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
-        static ORDER_OF_OPERATIONS_SIMPLE = [[Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+        static ORDER_OF_OPERATIONS_CORRECT = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name, Elements.ParsedDivide.name, Elements.ParsedModulo.name], [Elements.ParsedPlus.name, Elements.ParsedMinus.name]];
+        static ORDER_OF_OPERATIONS_SIMPLE = [[Elements.ParsedFunction.name], [Elements.ParsedExponent.name], [Elements.ParsedTimes.name], [Elements.ParsedDivide.name], [Elements.ParsedModulo.name], [Elements.ParsedPlus.name], [Elements.ParsedMinus.name]];
+        static FUNCTIONS = {
+            "abs": Solver.wrapMethod(Math.abs, 1),
+            "sign": Solver.wrapMethod(Math.sign, 1),
+            "max": Solver.wrapMethod(Math.max, "any"),
+            "min": Solver.wrapMethod(Math.min, "any"),
+            "clamp": Solver.wrapMethod((x, min, max) => {
+                return Math.max(Math.min(x, max), min);
+            }, 3),
+            "floor": Solver.wrapMethod(Math.floor, 1),
+            "ceil": Solver.wrapMethod(Math.ceil, 1),
+            "round": Solver.wrapMethod(Math.round, 1),
+            "pow": Solver.wrapMethod(Math.pow, 2),
+            "exp": Solver.wrapMethod(Math.exp, 1),
+            "expm1": Solver.wrapMethod(Math.exp, 1),
+            "sqrt": Solver.wrapMethod(Math.sqrt, 1),
+            "cbrt": Solver.wrapMethod(Math.cbrt, 1),
+            "sin": Solver.wrapMethod(Math.sin, 1),
+            "sinh": Solver.wrapMethod(Math.sinh, 1),
+            "asin": Solver.wrapMethod(Math.asin, 1),
+            "asinh": Solver.wrapMethod(Math.asinh, 1),
+            "cos": Solver.wrapMethod(Math.cos, 1),
+            "cosh": Solver.wrapMethod(Math.cosh, 1),
+            "acos": Solver.wrapMethod(Math.acos, 1),
+            "acosh": Solver.wrapMethod(Math.acosh, 1),
+            "tan": Solver.wrapMethod(Math.tan, 1),
+            "tanh": Solver.wrapMethod(Math.tanh, 1),
+            "atan": Solver.wrapMethod(Math.floor, 1),
+            "atan2": Solver.wrapMethod(Math.floor, 1),
+            "atanh": Solver.wrapMethod(Math.floor, 1),
+            "log": Solver.wrapMethod(Math.log, 1),
+            "log2": Solver.wrapMethod(Math.log2, 1),
+            "log10": Solver.wrapMethod(Math.log10, 1),
+            "log1p": Solver.wrapMethod(Math.log1p, 1),
+            "random": Solver.wrapMethods(Math.random, (x) => {
+                return Math.random() * x;
+            }, 0, 1),
+            "hypot": Solver.wrapMethod(Math.hypot, "any") // square root of the sum of squares of arguments
+        };
+        static wrapMethod(method, argC) {
+            return (...args) => {
+                if (arguments.length == argC || argC == "any") {
+                    method(args);
+                }
+                else {
+                    throw new Error("Incorrect number of args");
+                }
+            };
+        }
+        static wrapMethods(method1, method2, arg1C, arg2C) {
+            return (...args) => {
+                if (arguments.length == arg1C) {
+                    method1(args);
+                }
+                else if (arguments.length == arg2C || arg2C == "any") {
+                    method2(args);
+                }
+                else {
+                    throw new Error("Incorrect number of args");
+                }
+            };
+        }
         tree;
         constructor(tree) {
             this.tree = tree;
@@ -253,6 +322,31 @@ var Calculator;
                                     this.tree.children.splice(pointer, 2);
                                     pointer--;
                                 }
+                            }
+                        }
+                        else {
+                            throw new Error("Syntax error (Operator must be passed two numbers)");
+                        }
+                    }
+                    else if (this.tree.children[pointer] instanceof Elements.ParsedFunction) {
+                        let n1 = this.tree.children[pointer - 1];
+                        let n2 = this.tree.children[pointer + 1];
+                        let operation = this.tree.children[pointer];
+                        if (n1 instanceof Elements.ParsedNumber && n2 instanceof Elements.ParsedNumber) {
+                            if (operations.includes(operation.constructor.name)) {
+                                let method = Solver.FUNCTIONS[operation.name];
+                                if (method === undefined) {
+                                    throw new Error("Unknown function '" + operation.name + "'");
+                                }
+                                let args = [];
+                                for (let child of operation.children) {
+                                    if (child instanceof Elements.ParsedNumber) {
+                                        args.push(child.number);
+                                    }
+                                }
+                                this.tree.children[pointer - 1] = method(args);
+                                this.tree.children.splice(pointer, 2);
+                                pointer--;
                             }
                         }
                         else {
