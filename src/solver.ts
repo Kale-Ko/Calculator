@@ -18,12 +18,56 @@ export default class Solver {
             "ceil": Solver.wrapMethod(Math.ceil, 1), // round up
             "round": Solver.wrapMethod(Math.round, 1), // round
 
+            "add": Solver.wrapMethods((x: number, y: number): number => {
+                return x + y;
+            }, (...args: number[]): number => {
+                if (args.length == 0) {
+                    return 0;
+                }
+
+                let result = args[0]!!;
+                for (let i = 1; i < args.length; i++) {
+                    result += args[i]!!;
+                }
+                return result;
+            }, 2, "any"), // x + y + ...
+            "sub": Solver.wrapMethod((x: number, y: number): number => {
+                return x - y;
+            }, 2), // x - y
+            "mul": Solver.wrapMethods((x: number, y: number): number => {
+                return x * y;
+            }, (...args: number[]): number => {
+                if (args.length == 0) {
+                    return 0;
+                }
+
+                let result = args[0]!!;
+                for (let i = 1; i < args.length; i++) {
+                    result *= args[i]!!;
+                }
+                return result;
+            }, 2, "any"), // x * y * ...
+            "div": Solver.wrapMethod((x: number, y: number): number => {
+                return x / y;
+            }, 2), // x / y
+            "mod": Solver.wrapMethod((x: number, y: number): number => {
+                return x % y;
+            }, 2), // x % y
+
             "pow": Solver.wrapMethod(Math.pow, 2), // x^y
-            "exp": Solver.wrapMethod(Math.exp, 1), // e^x
-            "expm1": Solver.wrapMethod(Math.exp, 1), // (e^x)-1,
+            "exp": Solver.wrapMethod(Math.exp, 1), // E^x
+            "expm1": Solver.wrapMethod(Math.exp, 1), // (E^x)-1,
 
             "sqrt": Solver.wrapMethod(Math.sqrt, 1), // square root
             "cbrt": Solver.wrapMethod(Math.cbrt, 1), // cube root
+            "root": Solver.wrapMethod((x: number, y: number): number => {
+                var negate = y % 2 == 1 && x < 0;
+                if (negate) {
+                    x = -x;
+                }
+                var possible = Math.pow(x, 1 / y);
+                return negate ? -possible : possible;
+            }, 2), // nth root
 
             "sin": Solver.wrapMethod(Math.sin, 1), // sine
             "sinh": Solver.wrapMethod(Math.sinh, 1), // hyperbolic sine
@@ -54,7 +98,7 @@ export default class Solver {
         };
 
     protected static wrapMethod(method: Function, argC: number | "any"): Function {
-        return (args: any[]) => {
+        return (args: number[]): number => {
             if (args.length == argC || argC == "any") {
                 return method(...args);
             } else {
@@ -64,7 +108,7 @@ export default class Solver {
     }
 
     protected static wrapMethods(method1: Function, method2: Function, arg1C: number, arg2C: number | "any"): Function {
-        return (args: any[]) => {
+        return (args: number[]): number => {
             if (args.length == arg1C) {
                 return method1(...args);
             } else if (args.length == arg2C || arg2C == "any") {
