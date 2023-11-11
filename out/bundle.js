@@ -267,11 +267,59 @@ class Solver {
         "floor": Solver.wrapMethod(Math.floor, 1),
         "ceil": Solver.wrapMethod(Math.ceil, 1),
         "round": Solver.wrapMethod(Math.round, 1),
+        "add": Solver.wrapMethods((x, y) => {
+            return x + y;
+        }, (...args) => {
+            if (args.length == 0) {
+                return 0;
+            }
+            let result = args[0];
+            for (let i = 1; i < args.length; i++) {
+                result += args[i];
+            }
+            return result;
+        }, 2, "any"),
+        "sub": Solver.wrapMethod((x, y) => {
+            return x - y;
+        }, 2),
+        "mul": Solver.wrapMethods((x, y) => {
+            return x * y;
+        }, (...args) => {
+            if (args.length == 0) {
+                return 0;
+            }
+            let result = args[0];
+            for (let i = 1; i < args.length; i++) {
+                result *= args[i];
+            }
+            return result;
+        }, 2, "any"),
+        "div": Solver.wrapMethod((x, y) => {
+            return x / y;
+        }, 2),
+        "mod": Solver.wrapMethod((x, y) => {
+            return x % y;
+        }, 2),
         "pow": Solver.wrapMethod(Math.pow, 2),
         "exp": Solver.wrapMethod(Math.exp, 1),
         "expm1": Solver.wrapMethod(Math.exp, 1),
         "sqrt": Solver.wrapMethod(Math.sqrt, 1),
         "cbrt": Solver.wrapMethod(Math.cbrt, 1),
+        "root": Solver.wrapMethod((x, y) => {
+            var negate = y % 2 == 1 && x < 0;
+            if (negate) {
+                x = -x;
+            }
+            var possible = Math.pow(x, 1 / y);
+            return negate ? -possible : possible;
+        }, 2),
+        "factorial": Solver.wrapMethod((x) => {
+            let result = x;
+            for (let y = x - 1; y > 0; y--) {
+                result *= y;
+            }
+            return result;
+        }, 1),
         "sin": Solver.wrapMethod(Math.sin, 1),
         "sinh": Solver.wrapMethod(Math.sinh, 1),
         "asin": Solver.wrapMethod(Math.asin, 1),

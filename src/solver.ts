@@ -69,6 +69,14 @@ export default class Solver {
                 return negate ? -possible : possible;
             }, 2), // nth root
 
+            "factorial": Solver.wrapMethod((x: number): number => {
+                let result = x;
+                for (let y = x - 1; y > 0; y--) {
+                    result *= y;
+                }
+                return result;
+            }, 1), // x!
+
             "sin": Solver.wrapMethod(Math.sin, 1), // sine
             "sinh": Solver.wrapMethod(Math.sinh, 1), // hyperbolic sine
             "asin": Solver.wrapMethod(Math.asin, 1), // inverse sine
